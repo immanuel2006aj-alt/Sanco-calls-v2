@@ -285,3 +285,5 @@ function startCallTimer() {
     updateTimer(callSeconds);
   }, 1000);
 }
+// At the very end of app.js, after the startCallTimer function
+initCall();
