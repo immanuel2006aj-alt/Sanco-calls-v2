@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+  <title>Sanco · Private Video Calls</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="favicon.ico" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+  <meta name="description" content="Private, encrypted, 1-to-1 video calls. No account needed." />
+</head>
+<body>
+  <div class="glow-orb"></div>
+  <div class="container">
+    <header class="brand">
+      <span class="logo-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00f3ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 7l-7 5 7 5V7z" />
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+          <circle cx="8.5" cy="12" r="1.5" fill="#00f3ff" />
+        </svg>
+      </span>
+      <h1>Sanco<span>Video</span></h1>
+      <p class="tagline">Private · Encrypted · No account required</p>
+    </header>
+
+    <main class="card-grid">
+      <section class="action-card" id="callerCard">
+        <div class="icon-circle">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00f3ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.574 2.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+        </div>
+        <h2>Start a Call</h2>
+        <p>Generate a secure room link and invite anyone.</p>
+        <button class="btn-primary" id="createRoomBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+          Create Call
+        </button>
+      </section>
+
+      <section class="action-card" id="receiverCard">
+        <div class="icon-circle">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00f3ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 7h3a5 5 0 015 5 5 5 0 01-5 5h-3m-6 0H6a5 5 0 01-5-5 5 5 0 015-5h3"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+        </div>
+        <h2>Join a Call</h2>
+        <p>Enter the 8‑digit room code to connect instantly.</p>
+        <div class="join-input-group">
+          <input type="text" id="roomCodeInput" placeholder="e.g. A7F9K2L1" maxlength="8" autocomplete="off" spellcheck="false" aria-label="Call ID" />
+          <button class="btn-secondary" id="joinRoomBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+            Join
+          </button>
+        </div>
+        <div id="joinError" class="error-message" style="display:none;"></div>
+      </section>
+    </main>
+
+    <footer class="footer-status">
+      <span class="status-dot"></span> Peer‑to‑peer · DTLS encrypted · No logs
+      <a href="#" id="privacyLink" style="color:#8892b0; margin-left:12px; text-decoration:underline;">Privacy</a>
+    </footer>
+  </div>
+
+  <script type="module">
+    import { generateCallId } from './utils.js';
+    const createBtn = document.getElementById('createRoomBtn');
+    const joinBtn = document.getElementById('joinRoomBtn');
+    const input = document.getElementById('roomCodeInput');
+    const joinError = document.getElementById('joinError');
+
+    createBtn.addEventListener('click', () => {
+      const id = generateCallId();
+      window.location.href = `room.html?room=${id}&role=caller`;
+    });
+
+    joinBtn.addEventListener('click', () => {
+      const raw = input.value.trim().toUpperCase();
+      if (!raw || raw.length !== 8 || !/^[A-Z0-9]{8}$/.test(raw)) {
+        joinError.textContent = 'Please enter a valid 8‑digit Call ID (letters and numbers).';
+        joinError.style.display = 'block';
+        return;
+      }
+      joinError.style.display = 'none';
+      window.location.href = `room.html?room=${raw}&role=receiver`;
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') joinBtn.click();
+    });
+    input.addEventListener('input', () => {
+      joinError.style.display = 'none';
+    });
+
+    document.getElementById('privacyLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      alert('Sanco Video Calls\n\nNo account required.\nNo personal data collected.\nTemporary call sessions.\nWebRTC encrypted media.\nPeer-to-peer when possible.\nNo automatic recording.');
+    });
+  </script>
+</body>
+</html>
