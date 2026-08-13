@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sanco · Private Video Calls</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    /* ===== RESET & BASE ===== */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0b0e1a;
+      color: #f0f4ff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image: radial-gradient(circle at 20% 30%, #162044 0%, #070a12 90%);
+      padding: 16px;
+      overflow: hidden;
+    }
+    .glow-orb {
+      position: fixed;
+      width: 60vw;
+      height: 60vh;
+      background: radial-gradient(circle, rgba(0, 243, 255, 0.06) 0%, transparent 70%);
+      top: -20%;
+      right: -20%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .container {
+      max-width: 900px;
+      width: 100%;
+      z-index: 1;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    /* ===== LANDING ===== */
+    .brand { text-align: center; margin-bottom: 3rem; }
+    .logo-icon { display: inline-block; filter: drop-shadow(0 0 20px rgba(0,243,255,0.3)); }
+    .brand h1 {
+      font-size: 3rem; font-weight: 700; letter-spacing: -1px;
+      background: linear-gradient(135deg, #ffffff 0%, #94b8ff 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-top: 8px;
+    }
+    .brand h1 span { font-weight: 300; -webkit-text-fill-color: #00f3ff; }
+    .tagline { color: #8892b0; letter-spacing: 2px; font-size: 0.9rem; margin-top: 6px; }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin: 2rem 0;
+    }
+    @media (max-width: 600px) { .card-grid { grid-template-columns: 1fr; } }
+
+    .action-card {
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 28px;
+      padding: 2rem 1.5rem;
+      text-align: center;
+      transition: all 0.3s ease;
+      box-shadow: 0 20px 40px -20px rgba(0,0,0,0.8);
+    }
+    .action-card:hover { border-color: rgba(0, 243, 255, 0.2); transform: translateY(-4px); }
+    .icon-circle {
+      width: 64px; height: 64px;
+      background: rgba(0, 243, 255, 0.08);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px;
+    }
+    .action-card h2 { font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; }
+    .action-card p { color: #8892b0; font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px; }
+
+    .btn-primary, .btn-secondary {
+      border: none;
+      padding: 14px 28px;
+      border-radius: 60px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #00f3ff, #0066ff);
+      color: #0b0e1a;
+      box-shadow: 0 8px 24px rgba(0, 243, 255, 0.2);
+    }
+    .btn-primary:hover { transform: scale(1.02); box-shadow: 0 12px 32px rgba(0, 243, 255, 0.4); }
+    .btn-secondary {
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+      box-shadow: none;
+      border: 1px solid rgba(255,255,255,0.1);
+      flex: 1;
+    }
+    .join-input-group {
+      display: flex;
+      gap: 8px;
+    }
+    .join-input-group input {
+      flex: 2;
+      padding: 14px 16px;
+      border-radius: 60px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(0,0,0,0.3);
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .join-input-group input:focus { border-color: #00f3ff; }
+    .error-message { color: #ff5a6e; font-size: 0.85rem; margin-top: 8px; text-align: left; }
+
+    .footer-status {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #4a5278;
+      margin-top: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .status-dot {
+      width: 6px; height: 6px; background: #00ff88; border-radius: 50%;
+      display: inline-block; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+
+    /* ===== ROOM / CALL SCREEN ===== */
+    #roomContainer {
+      display: none;
+      width: 100vw;
+      height: 100vh;
+      flex-direction: column;
+      background: #000;
+      overflow: hidden;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 100;
+    }
+    #roomContainer.active {
+      display: flex;
+    }
+
+    .video-grid {
+      flex: 1;
+      position: relative;
+      background: #0a0c14;
+      overflow: hidden;
+    }
+    .video-wrapper.remote {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: #111624;
+    }
+    .video-wrapper.remote video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #0a0c14;
+    }
+    .video-wrapper.local {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      width: 160px;
+      height: 220px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.25);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+      cursor: pointer;
+      z-index: 20;
+      transition: all 0.3s ease;
+      background: #1a1f2e;
+    }
+    .video-wrapper.local:hover { transform: scale(1.03); border-color: #00f3ff; box-shadow: 0 0 24px rgba(0,243,255,0.3); }
+    .video-wrapper.local video { width: 100%; height: 100%; object-fit: cover; }
+    .video-wrapper .label {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #ccd6f6;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .video-wrapper.remote .label { background: rgba(0,243,255,0.15); border: 1px solid rgba(0,243,255,0.2); }
+
+    .control-bar {
+      background: rgba(20,28,48,0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      flex-wrap: wrap;
+      z-index: 30;
+      position: relative;
+    }
+    .ctrl-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.07);
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .ctrl-btn:hover { background: rgba(255,255,255,0.15); transform: scale(1.05); }
+    .ctrl-btn.danger { background: rgba(255,50,70,0.25); color: #ff5a6e; }
+    .ctrl-btn.danger:hover { background: rgba(255,50,70,0.5); }
+
+    #ghostBtn[data-active="true"] {
+      background: rgba(0, 243, 255, 0.2);
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+      border: 1px solid #00f3ff;
+    }
+
+    .room-code-badge {
+      background: rgba(0,0,0,0.4);
+      padding: 8px 18px;
+      border-radius: 40px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: #00f3ff;
+      margin-left: auto;
+      border: 1px solid rgba(0,243,255,0.15);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .more-menu {
+      position: absolute;
+      bottom: 80px;
+      right: 20px;
+      background: rgba(20,28,48,0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 12px;
+      min-width: 180px;
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      z-index: 40;
+      display: none;
+    }
+    .more-menu .menu-item {
+      display: block;
+      width: 100%;
+      padding: 10px 16px;
+      background: none;
+      border: none;
+      color: #f0f4ff;
+      font-size: 0.9rem;
+      text-align: left;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .more-menu .menu-item:hover { background: rgba(255,255,255,0.06); }
+
+    .toast-container {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 40px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      pointer-events: auto;
+      animation: toastFade 2.5s forwards;
+    }
+    @keyframes toastFade {
+      0% { opacity: 0; transform: translateY(20px); }
+      10% { opacity: 1; transform: translateY(0); }
+      80% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-10px); }
+    }
+
+    @media (max-width: 500px) {
+      .video-wrapper.local { width: 110px; height: 160px; bottom: 16px; right: 16px; border-radius: 12px; }
+      .ctrl-btn { width: 44px; height: 44px; }
+      .room-code-badge { font-size: 0.7rem; padding: 4px 12px; }
+      .more-menu { right: 10px; min-width: 150px; }
+    }
+    @media (max-width: 400px) {
+      .video-wrapper.local { width: 80px; height: 120px; bottom: 12px; right: 12px; }
+    }
+    @media (max-width: 600px) {
+      .control-bar { gap: 8px; padding: 10px 12px; }
+      .toast-container { bottom: 80px; }
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="glow-orb"></div>
+
+  <!-- ===== LANDING PAGE ===== -->
+  <div class="container" id="landingContainer">
+    <header class="brand">
+      <span class="logo-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00f3ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 7l-7 5 7 5V7z" />
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+          <circle cx="8.5" cy="12" r="1.5" fill="#00f3ff" />
+        </svg>
+      </span>
+      <h1>Sanco<span>Video</span></h1>
+      <p class="tagline">Private · Encrypted · No account required</p>
+    </header>
+
+    <main class="card-grid">
+      <section class="action-card" id="callerCard">
+        <div class="icon-circle">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00f3ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.574 2.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+        </div>
+        <h2>Start a Call</h2>
+        <p>Generate a secure room link and invite anyone.</p>
+        <button class="btn-primary" id="createRoomBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+          Create Call
+        </button>
+      </section>
+
+      <section class="action-card" id="receiverCard">
+        <div class="icon-circle">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00f3ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 7h3a5 5 0 015 5 5 5 0 01-5 5h-3m-6 0H6a5 5 0 01-5-5 5 5 0 015-5h3"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+        </div>
+        <h2>Join a Call</h2>
+        <p>Enter the 8‑digit room code to connect instantly.</p>
+        <div class="join-input-group">
+          <input type="text" id="roomCodeInput" placeholder="e.g. A7F9K2L1" maxlength="8" autocomplete="off" spellcheck="false" aria-label="Call ID" />
+          <button class="btn-secondary" id="joinRoomBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+            Join
+          </button>
+        </div>
+        <div id="joinError" class="error-message" style="display:none;"></div>
+      </section>
+    </main>
+
+    <footer class="footer-status">
+      <span class="status-dot"></span> Peer‑to‑peer · DTLS encrypted · No logs
+      <a href="#" id="privacyLink" style="color:#8892b0; margin-left:12px; text-decoration:underline;">Privacy</a>
+    </footer>
+  </div>
+
+  <!-- ===== CALL SCREEN ===== -->
+  <div id="roomContainer">
+    <div class="video-grid" id="videoGrid">
+      <div class="video-wrapper remote" id="remoteWrapper">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <span class="label" id="remoteLabel">Connecting...</span>
+      </div>
+      <div class="video-wrapper local" id="localWrapper">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <span class="label">You</span>
+      </div>
+    </div>
+
+    <div class="control-bar">
+      <button id="muteBtn" class="ctrl-btn" aria-label="Toggle microphone">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <button id="videoBtn" class="ctrl-btn" aria-label="Toggle camera">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+      </button>
+      <button id="switchCameraBtn" class="ctrl-btn" aria-label="Switch camera" style="display:none;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      </button>
+      <button id="screenShareBtn" class="ctrl-btn" aria-label="Share screen" style="display:none;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </button>
+      <button id="ghostBtn" class="ctrl-btn" aria-label="Toggle Ghost Mode" data-active="false">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2C8 2 4 5 4 9v4c0 4 4 7 8 7s8-3 8-7V9c0-4-4-7-8-7z"/>
+          <path d="M8 14c.5.5 1.5 1 3 1s2.5-.5 3-1"/>
+          <circle cx="9" cy="11" r="1" fill="currentColor"/>
+          <circle cx="15" cy="11" r="1" fill="currentColor"/>
+        </svg>
+      </button>
+      <button id="moreBtn" class="ctrl-btn" aria-label="More options">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      </button>
+      <button id="endBtn" class="ctrl-btn danger" aria-label="End call">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.574 2.81.7A2 2 0 0122 16.92z"/></svg>
+      </button>
+      <div class="room-code-badge">
+        🔒 <span id="displayRoom"></span>
+      </div>
+    </div>
+
+    <div class="more-menu" id="moreMenu">
+      <button id="fullscreenBtn" class="menu-item" aria-label="Fullscreen">⛶ Fullscreen</button>
+      <button id="pipBtn" class="menu-item" aria-label="Picture-in-Picture" style="display:none;">⊞ Picture‑in‑Picture</button>
+      <button id="deviceSettingsBtn" class="menu-item" aria-label="Device settings">⚙ Device Settings</button>
+      <button id="closeMoreBtn" class="menu-item" aria-label="Close menu">✕ Close</button>
+    </div>
+  </div>
+
+  <!-- ===== TOAST CONTAINER ===== -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // ============================================================
+    //  ALL JAVASCRIPT — INLINE, NO MODULES
+    // ============================================================
+
+    // ---- CONFIG ----
+    var CONFIG = {
+      peerjs: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' }
+        ]
+      },
+      media: {
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      },
+      reconnectAttempts: 3,
+      reconnectBackoff: [1000, 3000, 8000]
+    };
+
+    // ---- UTILS ----
+    function generateCallId() {
+      var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      var array = new Uint8Array(8);
+      crypto.getRandomValues(array);
+      return Array.from(array, function(byte) { return chars[byte % chars.length]; }).join('');
+    }
+
+    function validateCallId(id) {
+      if (!id || typeof id !== 'string') return false;
+      var cleaned = id.trim().toUpperCase();
+      return /^[A-Z0-9]{8}$/.test(cleaned);
+    }
+
+    // ---- UI HELPERS ----
+    function showToast(message, duration) {
+      duration = duration || 2500;
+      var container = document.getElementById('toastContainer');
+      var toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(function() {
+        if (toast.parentNode) toast.remove();
+      }, duration);
+    }
+
+    function updateConnectionStatus(status, labelId) {
+      labelId = labelId || 'remoteLabel';
+      var el = document.getElementById(labelId);
+      if (el) el.textContent = status;
+    }
+
+    function updateTimer(seconds, elementId) {
+      elementId = elementId || 'callTimer';
+      var el = document.getElementById(elementId);
+      if (!el) {
+        el = document.createElement('span');
+        el.id = elementId;
+        var badge = document.querySelector('.room-code-badge');
+        if (badge) {
+          badge.appendChild(document.createTextNode(' · '));
+          badge.appendChild(el);
+        }
+      }
+      var mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+      var secs = String(seconds % 60).padStart(2, '0');
+      el.textContent = mins + ':' + secs;
+    }
+
+    // ---- MEDIA ----
+    var localStream = null;
+    var ghostAnimationId = null;
+
+    function getLocalMedia() {
+      return navigator.mediaDevices.getUserMedia({
+        video: CONFIG.media.video,
+        audio: CONFIG.media.audio
+      }).then(function(stream) {
+        localStream = stream;
+        return stream;
+      }).catch(function(err) {
+        console.warn('Media error:', err);
+        showToast('Camera or microphone access denied.');
+        return null;
+      });
+    }
+
+    function getLocalStream() { return localStream; }
+
+    function stopLocalMedia() {
+      if (localStream) {
+        localStream.getTracks().forEach(function(t) { t.stop(); });
+        localStream = null;
+      }
+    }
+
+    function toggleAudio(enabled) {
+      if (!localStream) return;
+      localStream.getAudioTracks().forEach(function(t) { t.enabled = enabled; });
+    }
+
+    function toggleVideo(enabled) {
+      if (!localStream) return;
+      localStream.getVideoTracks().forEach(function(t) { t.enabled = enabled; });
+    }
+
+    function replaceVideoTrack(newTrack) {
+      if (!localStream) return;
+      var old = localStream.getVideoTracks()[0];
+      if (old) {
+        localStream.removeTrack(old);
+        old.stop();
+      }
+      localStream.addTrack(newTrack);
+    }
+
+    function createGhostStream() {
+      var canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 240;
+      var ctx = canvas.getContext('2d');
+      var frame = 0;
+      function drawGhost() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#0b0e1a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        var glow = Math.sin(frame / 20) * 20 + 30;
+        ctx.shadowColor = 'rgba(0, 243, 255, ' + (glow / 100) + ')';
+        ctx.shadowBlur = 60;
+        ctx.font = '140px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#00f3ff';
+        ctx.shadowColor = '#00f3ff';
+        ctx.shadowBlur = 40;
+        ctx.fillText('👻', canvas.width / 2, canvas.height / 2 + 10);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(0, 243, 255, ' + (Math.sin(frame / 30) * 0.3 + 0.5) + ')';
+        ctx.beginPath();
+        ctx.arc(canvas.width - 30, 30, 8, 0, Math.PI * 2);
+        ctx.fill();
+        frame++;
+        ghostAnimationId = requestAnimationFrame(drawGhost);
+      }
+      drawGhost();
+      var stream = canvas.captureStream(15);
+      stream.addEventListener('inactive', function() {
+        if (ghostAnimationId) cancelAnimationFrame(ghostAnimationId);
+      });
+      return stream;
+    }
+
+    function stopGhostStream() {
+      if (ghostAnimationId) {
+        cancelAnimationFrame(ghostAnimationId);
+        ghostAnimationId = null;
+      }
+    }
+
+    // ---- DEVICES ----
+    var videoDevices = [];
+
+    function enumerateDevices() {
+      return navigator.mediaDevices.enumerateDevices().then(function(all) {
+        videoDevices = all.filter(function(d) { return d.kind === 'videoinput'; });
+        return videoDevices;
+      }).catch(function() {
+        return [];
+      });
+    }
+
+    function getVideoDevices() { return videoDevices; }
+
+    function switchCamera(stream, currentDeviceId) {
+      var devices = videoDevices;
+      if (devices.length < 2) {
+        showToast('Only one camera detected.');
+        return Promise.resolve(null);
+      }
+      var idx = devices.findIndex(function(d) { return d.deviceId === currentDeviceId; });
+      idx = (idx + 1) % devices.length;
+      var next = devices[idx];
+      if (!next) return Promise.resolve(null);
+      return navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: next.deviceId }, width: CONFIG.media.video.width, height: CONFIG.media.video.height, frameRate: CONFIG.media.video.frameRate },
+        audio: false
+      }).then(function(newStream) {
+        var track = newStream.getVideoTracks()[0];
+        replaceVideoTrack(track);
+        return next.deviceId;
+      }).catch(function() {
+        showToast('Unable to switch camera.');
+        return null;
+      });
+    }
+
+    // ---- NETWORK ----
+    var reconnectAttempts = 0;
+    var reconnectTimer = null;
+
+    function monitorConnection(pc, onRecover, onFail) {
+      if (!pc) return;
+      pc.onconnectionstatechange = function() {
+        var state = pc.connectionState;
+        if (state === 'connected') {
+          updateConnectionStatus('Connected');
+          reconnectAttempts = 0;
+        } else if (state === 'disconnected' || state === 'failed') {
+          updateConnectionStatus('Reconnecting...');
+          attemptRecovery(pc, onRecover, onFail);
+        }
+      };
+    }
+
+    function attemptRecovery(pc, onRecover, onFail) {
+      if (reconnectAttempts >= CONFIG.reconnectAttempts) {
+        updateConnectionStatus('Connection lost');
+        if (onFail) onFail();
+        return;
+      }
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      var delay = CONFIG.reconnectBackoff[reconnectAttempts] || 5000;
+      reconnectTimer = setTimeout(function() {
+        reconnectAttempts++;
+        try {
+          pc.createOffer({ iceRestart: true })
+            .then(function(offer) { return pc.setLocalDescription(offer); })
+            .then(function() {
+              if (onRecover) onRecover();
+            })
+            .catch(function() {
+              attemptRecovery(pc, onRecover, onFail);
+            });
+        } catch (e) {
+          attemptRecovery(pc, onRecover, onFail);
+        }
+      }, delay);
+    }
+
+    // ---- CLEANUP ----
+    function cleanupCall(call, peer, remoteVideo, localVideo) {
+      stopGhostStream();
+      stopLocalMedia();
+      if (call) {
+        try { call.close(); } catch(e) {}
+      }
+      if (peer) {
+        try { peer.destroy(); } catch(e) {}
+      }
+      if (remoteVideo) remoteVideo.srcObject = null;
+      if (localVideo) localVideo.srcObject = null;
+    }
+
+    // ---- CALL ----
+    var currentCall = null;
+    var currentPeer = null;
+
+    function createCall(callId, onConnected) {
+      return new Promise(function(resolve, reject) {
+        var peer = new Peer(callId, { config: CONFIG.peerjs });
+        currentPeer = peer;
+        peer.on('open', function() {
+          resolve(peer);
+        });
+        peer.on('error', function(err) {
+          if (err.type === 'peer-unavailable') {
+            showToast('Call ID not available.');
+            reject(new Error('Peer unavailable'));
+          } else {
+            reject(err);
+          }
+        });
+        peer.on('call', function(incoming) {
+          var stream = getLocalStream();
+          if (stream) {
+            incoming.answer(stream);
+            setupCall(incoming, onConnected);
+          } else {
+            incoming.close();
+          }
+        });
+      });
+    }
+
+    function joinCall(callId, onConnected) {
+      return new Promise(function(resolve, reject) {
+        var peer = new Peer({ config: CONFIG.peerjs });
+        currentPeer = peer;
+        peer.on('open', function() {
+          var stream = getLocalStream();
+          if (!stream) {
+            reject(new Error('No local stream'));
+            return;
+          }
+          var call = peer.call(callId, stream);
+          setupCall(call, onConnected);
+          resolve(peer);
+        });
+        peer.on('error', reject);
+      });
+    }
+
+    function setupCall(call, onConnected) {
+      currentCall = call;
+      call.on('stream', function(remoteStream) {
+        var remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo) remoteVideo.srcObject = remoteStream;
+        updateConnectionStatus('Connected');
+        if (onConnected) onConnected();
+      });
+      call.on('close', function() {
+        showToast('Call ended');
+        endCall();
+      });
+      call.on('error', function(err) {
+        showToast('Call error: ' + err.message);
+        endCall();
+      });
+      monitorConnection(call.peerConnection, function() {
+        showToast('Connection restored');
+      }, function() {
+        showToast('Connection lost');
+        endCall();
+      });
+    }
+
+    function endCall() {
+      if (currentCall) {
+        currentCall.close();
+        currentCall = null;
+      }
+      if (currentPeer) {
+        currentPeer.destroy();
+        currentPeer = null;
+      }
+      stopLocalMedia();
+      var remoteVideo = document.getElementById('remoteVideo');
+      var localVideo = document.getElementById('localVideo');
+      if (remoteVideo) remoteVideo.srcObject = null;
+      if (localVideo) localVideo.srcObject = null;
+      updateConnectionStatus('Call ended');
+    }
+
+    // ---- APP STATE ----
+    var callTimer = null;
+    var callSeconds = 0;
+    var isGhostMode = false;
+    var ghostStream = null;
+
+    // ---- APP INIT ----
+    function initCall() {
+      var urlParams = new URLSearchParams(window.location.search);
+      var room = urlParams.get('room');
+      var role = urlParams.get('role');
+
+      // If no URL params, show landing page
+      if (!room || !role || !validateCallId(room)) {
+        // Show landing
+        document.getElementById('landingContainer').style.display = 'block';
+        document.getElementById('roomContainer').classList.remove('active');
+        return;
+      }
+
+      // Switch to call screen
+      document.getElementById('landingContainer').style.display = 'none';
+      var container = document.getElementById('roomContainer');
+      container.classList.add('active');
+
+      document.getElementById('displayRoom').textContent = room;
+
+      getLocalMedia().then(function(stream) {
+        if (!stream) {
+          // Permission denied, go back
+          window.location.href = window.location.pathname;
+          return;
+        }
+        var localVideo = document.getElementById('localVideo');
+        localVideo.srcObject = stream;
+
+        enumerateDevices().then(function(devices) {
+          if (devices.length > 1) {
+            document.getElementById('switchCameraBtn').style.display = 'flex';
+          }
+        });
+
+        setupControls(room, role);
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+          document.getElementById('screenShareBtn').style.display = 'flex';
+        }
+
+        setupMoreMenu();
+
+        if (role === 'caller') {
+          updateConnectionStatus('Waiting for participant...');
+          createCall(room, function() {
+            startCallTimer();
+          }).catch(function(err) {
+            showToast('Call creation failed: ' + err.message);
+            window.location.href = window.location.pathname;
+          });
+        } else if (role === 'receiver') {
+          updateConnectionStatus('Connecting...');
+          joinCall(room, function() {
+            startCallTimer();
+          }).catch(function(err) {
+            showToast('Could not join call: ' + err.message);
+            window.location.href = window.location.pathname;
+          });
+        }
+
+        window.addEventListener('beforeunload', function() {
+          endCall();
+          stopGhostStream();
+          if (callTimer) clearInterval(callTimer);
+        });
+        window.addEventListener('pagehide', function() {
+          endCall();
+          stopGhostStream();
+          if (callTimer) clearInterval(callTimer);
+        });
+      });
+    }
+
+    // ---- CONTROLS ----
+    function setupControls(room, role) {
+      var muteBtn = document.getElementById('muteBtn');
+      var videoBtn = document.getElementById('videoBtn');
+      var switchCamBtn = document.getElementById('switchCameraBtn');
+      var screenShareBtn = document.getElementById('screenShareBtn');
+      var endBtn = document.getElementById('endBtn');
+      var ghostBtn = document.getElementById('ghostBtn');
+      var localWrapper = document.getElementById('localWrapper');
+
+      var isMuted = false;
+      var isVideoOff = false;
+      var isScreenSharing = false;
+
+      muteBtn.addEventListener('click', function() {
+        isMuted = !isMuted;
+        toggleAudio(!isMuted);
+        muteBtn.style.opacity = isMuted ? '0.4' : '1';
+        showToast(isMuted ? 'Microphone muted' : 'Microphone unmuted');
+      });
+
+      videoBtn.addEventListener('click', function() {
+        isVideoOff = !isVideoOff;
+        toggleVideo(!isVideoOff);
+        videoBtn.style.opacity = isVideoOff ? '0.4' : '1';
+        showToast(isVideoOff ? 'Camera off' : 'Camera on');
+      });
+
+      switchCamBtn.addEventListener('click', function() {
+        var devices = getVideoDevices();
+        if (devices.length < 2) {
+          showToast('Only one camera available.');
+          return;
+        }
+        var stream = getLocalStream();
+        if (!stream) return;
+        var currentTrack = stream.getVideoTracks()[0];
+        var currentId = currentTrack ? currentTrack.getSettings().deviceId : null;
+        switchCamera(stream, currentId).then(function() {
+          showToast('Camera switched');
+        });
+      });
+
+      screenShareBtn.addEventListener('click', function() {
+        if (isScreenSharing) return;
+        navigator.mediaDevices.getDisplayMedia({ video: true })
+          .then(function(displayStream) {
+            var track = displayStream.getVideoTracks()[0];
+            var localStream = getLocalStream();
+            if (!localStream) { displayStream.getTracks().forEach(function(t) { t.stop(); }); return; }
+            var oldVideo = localStream.getVideoTracks()[0];
+            if (oldVideo) {
+              localStream.removeTrack(oldVideo);
+              oldVideo.stop();
+            }
+            localStream.addTrack(track);
+            document.getElementById('localVideo').srcObject = localStream;
+            isScreenSharing = true;
+            screenShareBtn.style.opacity = '0.6';
+            showToast('Screen sharing started');
+            track.onended = function() {
+              restoreCamera();
+              isScreenSharing = false;
+              screenShareBtn.style.opacity = '1';
+              showToast('Screen sharing stopped');
+            };
+          })
+          .catch(function() {
+            showToast('Screen share cancelled or failed');
+          });
+      });
+
+      function restoreCamera() {
+        navigator.mediaDevices.getUserMedia({ video: CONFIG.media.video, audio: false })
+          .then(function(newStream) {
+            var track = newStream.getVideoTracks()[0];
+            var localStream = getLocalStream();
+            if (!localStream) return;
+            var old = localStream.getVideoTracks()[0];
+            if (old) {
+              localStream.removeTrack(old);
+              old.stop();
+            }
+            localStream.addTrack(track);
+            document.getElementById('localVideo').srcObject = localStream;
+          })
+          .catch(function() {
+            showToast('Could not restore camera.');
+          });
+      }
+
+      // PIP Swap
+      localWrapper.addEventListener('click', function() {
+        var remoteVideo = document.getElementById('remoteVideo');
+        var localVideo = document.getElementById('localVideo');
+        var remoteWrapper = document.getElementById('remoteWrapper');
+        var temp = remoteVideo.srcObject;
+        remoteVideo.srcObject = localVideo.srcObject;
+        localVideo.srcObject = temp;
+        var remoteLabel = document.querySelector('.remote .label');
+        var localLabel = document.querySelector('.local .label');
+        var tempLabel = remoteLabel.textContent;
+        remoteLabel.textContent = localLabel.textContent;
+        localLabel.textContent = tempLabel;
+        remoteWrapper.classList.toggle('local');
+        remoteWrapper.classList.toggle('remote');
+        localWrapper.classList.toggle('local');
+        localWrapper.classList.toggle('remote');
+      });
+
+      // End Call
+      endBtn.addEventListener('click', function() {
+        endCall();
+        stopGhostStream();
+        if (callTimer) clearInterval(callTimer);
+        window.location.href = window.location.pathname;
+      });
+
+      // Ghost Mode
+      ghostBtn.addEventListener('click', function() {
+        toggleGhostMode();
+      });
+
+      // ---- Ghost Mode Toggle ----
+      function toggleGhostMode() {
+        var localStream = getLocalStream();
+        if (!localStream) {
+          showToast('No media stream available.');
+          return;
+        }
+        var ghostBtn = document.getElementById('ghostBtn');
+
+        if (isGhostMode) {
+          // Exit Ghost Mode
+          navigator.mediaDevices.getUserMedia({ video: CONFIG.media.video, audio: false })
+            .then(function(newStream) {
+              var newTrack = newStream.getVideoTracks()[0];
+              replaceVideoTrack(newTrack);
+              document.getElementById('localVideo').srcObject = localStream;
+            })
+            .catch(function() {
+              showToast('Could not restore camera.');
+            });
+          toggleAudio(true);
+          isGhostMode = false;
+          ghostBtn.dataset.active = 'false';
+          ghostBtn.style.opacity = '1';
+          showToast('👻 Ghost Mode OFF');
+          stopGhostStream();
+        } else {
+          // Enter Ghost Mode
+          toggleAudio(false);
+          if (ghostStream) {
+            ghostStream.getTracks().forEach(function(t) { t.stop(); });
+            ghostStream = null;
+          }
+          ghostStream = createGhostStream();
+          var ghostTrack = ghostStream.getVideoTracks()[0];
+          replaceVideoTrack(ghostTrack);
+          document.getElementById('localVideo').srcObject = localStream;
+          isGhostMode = true;
+          ghostBtn.dataset.active = 'true';
+          ghostBtn.style.opacity = '0.6';
+          showToast('👻 Ghost Mode ON — Invisible');
+        }
+      }
+    }
+
+    // ---- MORE MENU ----
+    function setupMoreMenu() {
+      var moreBtn = document.getElementById('moreBtn');
+      var menu = document.getElementById('moreMenu');
+      var closeMore = document.getElementById('closeMoreBtn');
+
+      moreBtn.addEventListener('click', function() {
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+      });
+      closeMore.addEventListener('click', function() {
+        menu.style.display = 'none';
+      });
+
+      document.getElementById('fullscreenBtn').addEventListener('click', function() {
+        var el = document.getElementById('roomContainer');
+        if (!document.fullscreenElement) {
+          el.requestFullscreen().catch(function() {
+            showToast('Fullscreen not supported');
+          });
+        } else {
+          document.exitFullscreen();
+        }
+        menu.style.display = 'none';
+      });
+
+      var pipBtn = document.getElementById('pipBtn');
+      if (HTMLVideoElement.prototype.requestPictureInPicture) {
+        pipBtn.style.display = 'block';
+        pipBtn.addEventListener('click', function() {
+          var video = document.getElementById('remoteVideo');
+          if (video && !document.pictureInPictureElement) {
+            video.requestPictureInPicture().catch(function() {
+              showToast('PIP not available');
+            });
+          } else if (document.pictureInPictureElement) {
+            document.exitPictureInPicture();
+          }
+          menu.style.display = 'none';
+        });
+      }
+
+      document.getElementById('deviceSettingsBtn').addEventListener('click', function() {
+        menu.style.display = 'none';
+        alert('Device settings: Camera and microphone selection will be added in a future update.');
+      });
+    }
+
+    // ---- TIMER ----
+    function startCallTimer() {
+      if (callTimer) clearInterval(callTimer);
+      callSeconds = 0;
+      callTimer = setInterval(function() {
+        callSeconds++;
+        updateTimer(callSeconds);
+      }, 1000);
+    }
+
+    // ============================================================
+    //  LANDING PAGE EVENTS
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      var createBtn = document.getElementById('createRoomBtn');
+      var joinBtn = document.getElementById('joinRoomBtn');
+      var input = document.getElementById('roomCodeInput');
+      var joinError = document.getElementById('joinError');
+
+      createBtn.addEventListener('click', function() {
+        var id = generateCallId();
+        window.location.href = window.location.pathname + '?room=' + id + '&role=caller';
+      });
+
+      joinBtn.addEventListener('click', function() {
+        var raw = input.value.trim().toUpperCase();
+        if (!raw || raw.length !== 8 || !/^[A-Z0-9]{8}$/.test(raw)) {
+          joinError.textContent = 'Please enter a valid 8‑digit Call ID (letters and numbers).';
+          joinError.style.display = 'block';
+          return;
+        }
+        joinError.style.display = 'none';
+        window.location.href = window.location.pathname + '?room=' + raw + '&role=receiver';
+      });
+
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') joinBtn.click();
+      });
+      input.addEventListener('input', function() {
+        joinError.style.display = 'none';
+      });
+
+      document.getElementById('privacyLink').addEventListener('click', function(e) {
+        e.preventDefault();
+        alert('Sanco Video Calls\n\nNo account required.\nNo personal data collected.\nTemporary call sessions.\nWebRTC encrypted media.\nPeer-to-peer when possible.\nNo automatic recording.');
+      });
+
+      // Start the app — check if URL params exist
+      initCall();
+    });
+  </script>
+</body>
+</html>
